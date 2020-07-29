@@ -8,6 +8,7 @@ from __future__ import division
 import numpy as np
 import os
 from math import pi
+import VBBinaryLensing
 
 def microlensing(timestamps, baseline):
     """Simulates a microlensing event.  
@@ -44,7 +45,7 @@ def microlensing(timestamps, baseline):
     
     t_0 = np.random.uniform(lower_bound, upper_bound)        
     u_0 = np.random.uniform(0, 1.5)
-    t_e = np.random.normal(30, 10.0)
+    t_e = np.random.normal(50, 10.0)
     blend_ratio = np.random.uniform(0,10)
 
     u_t = np.sqrt(u_0**2 + ((timestamps - t_0) / t_e)**2)
@@ -60,7 +61,7 @@ def microlensing(timestamps, baseline):
     flux_obs = f_s*magnification + f_b+flux_noise
     microlensing_mag = -2.5*np.log10(flux_obs)
     
-    return np.array(microlensing_mag), baseline, u_0, t_0, t_e, blend_ratio
+    return np.array(microlensing_mag), baseline, u_0, t_0, t_e, blend_ratio, np.array(flux_obs), f_s, f_b
     
 def cv(timestamps, baseline):
     """Simulates Cataclysmic Variable event.
@@ -225,4 +226,135 @@ def variable(timestamps, baseline, bailey=None):       #theory, McGill et al. (2
     amplitude = np.ptp(lightcurve) / 2.0
     return np.array(lightcurve), amplitude, period 
 
+'''
+    PSBL model, functions taken from VBBinary Lensing and pyLIMA
+'''
+
+
+VBB = VBBinaryLensing.VBBinaryLensing()
+VBB.Tol = 0.001
+VBB.RelTol = 0.001
+VBB.minannuli=2 # stabilizing for rho>>caustics
+# Linear basic trajectory
+def source_trajectory(time, to, uo, tE, alpha): #source_trajectory(self, time, to, uo, tE, alpha)
+    """ Compute the microlensing source trajectory associated to a telescope for the given parameters.
+        :param float to: time of maximum magnification
+        :param float uo: minimum impact parameter
+        :param float tE: angular Einstein ring crossing time
+        :param object telescope: a telescope object. More details in telescope module.
+        :param object pyLIMA_parameters: a namedtuple which contain the parameters
+        :return: source_trajectory_x, source_trajectory_y the x,y compenents of the source trajectory
+        :rtype: array_like,array_like
+    """
+#    lightcurve = telescope.lightcurve_flux
+#    time = lightcurve[:, 0]
+    tau = (time - to) / tE
+    beta = np.array([uo] * len(tau))
+    dseparation = np.array([0]*len(tau))
+                
+    source_trajectory_x = tau * np.cos(alpha) - beta * np.sin(alpha)
+    source_trajectory_y = tau * np.sin(alpha) + beta * np.cos(alpha)
+
+    return source_trajectory_x, source_trajectory_y, dseparation
+
+
+def amplification_PSBL(separation, mass_ratio, x_source, y_source):
+    """
+    The Point Source Binary Lens amplification, based on the work of Valerio Bozza, thanks :)
+    "Microlensing with an advanced contour integration algorithm: Green's theorem to third order, error control,
+    optimal sampling and limb darkening ",Bozza, Valerio 2010. Please cite the paper if you used this.
+    http://mnras.oxfordjournals.org/content/408/4/2188
+    :param array_like separation: the projected normalised angular distance between the two bodies
+    :param float mass_ratio: the mass ratio of the two bodies
+    :param array_like x_source: the horizontal positions of the source center in the source plane
+    :param array_like y_source: the vertical positions of the source center in the source plane
+    :return: the PSBL magnification A_PSBL(t)
+    :rtype: array_like
+    """
+
+    amplification_psbl = []
+
+    for xs, ys, s in zip(x_source, y_source, separation):
+
+        magnification_VBB =VBB.BinaryMag0(s, mass_ratio, xs, ys)
+
+        amplification_psbl.append(magnification_VBB)
+
+    return np.array(amplification_psbl)
+
+
+def model_magnification(time, tE, logs, logq, to, uo, alpha): #model_magnification(self, time, tE, logs, logq, to, uo, alpha):
+    """ The magnification associated to a PSBL model.
+        From Bozza  2010 : http://adsabs.harvard.edu/abs/2010MNRAS.408.2188B
+        :param object telescope: a telescope object. More details in telescope module.
+        :param object pyLIMA_parameters: a namedtuple which contain the parameters
+        :return: magnification,
+        :rtype: array_like,
+    """
+    #to, uo = self.uo_to_from_uc_tc(to, uo,tE, alpha)
+
+    source_trajectoire = source_trajectory(time, to, uo, tE, alpha) #self.source_trajectory(time, to, uo, tE, alpha)
+
+    separation =  source_trajectoire[2]+10**logs
+
+    magnification = \
+        amplification_PSBL(separation, 10 **logq, source_trajectoire[0], source_trajectoire[1])
+
+    return magnification
+
+def PSBL_microlensing(timestamps, baseline):
+    """Simulates a microlensing event.  
+    The microlensing parameter space is determined using data from an 
+    analysis of the OGLE III microlensing survey from Y. Tsapras et al (2016).
+    See: The OGLE-III planet detection efficiency from six years of microlensing observations (2003 to 2008).
+    (https://arxiv.org/abs/1602.02519)
+
+    Parameters
+    ----------
+    timestamps : array
+        Times at which to simulate the lightcurve.
+    baseline : float
+        Baseline magnitude at which to simulate the lightcurve.
+
+    Returns
+    -------
+    mag : array
+        Simulated magnitude given the timestamps.
+    u_0 : float
+        The source minimum impact parameter.
+    t_0 : float
+        The time of maximum magnification.
+    t_E : float
+        The timescale of the event in days.
+    blend_ratio : float
+        The blending coefficient chosen between 0 and 10.     
+    """   
+ 
+    mag = constant(timestamps, baseline)
+    # Set bounds to ensure enough measurements are available near t_0 
+    lower_bound = np.percentile(timestamps, 10)
+    upper_bound = np.percentile(timestamps, 90)
+    
+    t_0 = np.random.uniform(lower_bound, upper_bound)        
+    t_e = np.random.normal(50.0, 10.0) #np.random.normal(30, 10.0)
+    blend_ratio = np.random.uniform(0,10) 
+    u_0 = np.random.uniform(-1.0,1.0) #(-2,2)?
+    log_q = np.random.uniform(-4.0,0) 
+    log_d = np.random.uniform(-0.7, 0.7)
+    alpha = np.random.uniform(0, 2*np.pi)
+        
+    magnification = model_magnification(timestamps, t_e, log_d, log_q, t_0, u_0, alpha)
+    # PSBL magnitudes
+    flux = 10**((mag) / -2.5)
+    baseline = np.median(mag)
+    flux_base = np.median(flux)
+    flux_noise = flux-flux_base
+    f_s = flux_base / (1 + blend_ratio)
+    f_b = blend_ratio * f_s
+    flux_obs = f_s*magnification + f_b+flux_noise
+    mu = flux_obs/flux_base
+    #print('mu:', mu)
+    microlensing_mag = -2.5*np.log10(flux_obs)
+    
+    return np.array(microlensing_mag), baseline, u_0, t_0, t_e, blend_ratio, np.array(flux_obs), f_s, f_b, log_q, log_d, alpha, mu
     
