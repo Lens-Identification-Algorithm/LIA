@@ -350,8 +350,8 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, PSBL_class = 'yes
         # FIT METHOD 
     
         if PSBL_method == 'Fit':
-            col_names_PSBL = ['id', 't0', 'u0', 'tE', 'log_d', 'log_q', 'alpha']
-            data_rows_PSBL = []
+            #col_names_PSBL = ['id', 't0', 'u0', 'tE', 'log_d', 'log_q', 'alpha']
+            #data_rows_PSBL = []
             for k in range(1,n_class+1):
                 for j in range(100000):
                     choosen_pair = random.choice(time_baseline_pairs)
@@ -359,7 +359,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, PSBL_class = 'yes
                     time = np.array(time)
                     baseline = choosen_pair[1]
                     # Simulate PSBL event
-                    N = 10000
+                    N = 100000000
                     for i in range(N):
                         mu_value = 3.0
                         mag, base, u_0, t_0, t_e, blend_ratio, flux_obs, f_s, f_b, log_q, log_d, alpha, mu = simulate.PSBL_microlensing(time, baseline)
@@ -380,11 +380,12 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, PSBL_class = 'yes
                             peaks, properties = find_peaks(mag, prominence=1)
                             if len(peaks) >= 2:
                                 break
-                       
+                        if i ==9999999:
+                            raise RuntimeError('Unable to simulate PSBL in 100M tries.')
               
            
             
-            # quality check, pyLIMA
+                    # quality check, pyLIMA
                     with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
                         your_event = event.Event()
                         your_event.name = 'Simulated PSBL'
@@ -412,7 +413,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, PSBL_class = 'yes
 
                     if sigma_te_rel <= 0.02 and sigma_u0_rel <= 0.1 and sigma_q_rel <= 0.08:
                         #print('PSBL LC ok', sigma_te_rel, sigma_u0_rel, sigma_logq_rel)
-                        source_class = ['PSBL ML']*len(time)
+                        source_class = ['PSBL_ML']*len(time)
                         source_class_list.append(source_class)
 #                       id_num = [4*n_class+k]*len(time)
                         id_num = [4*n_class+k]*len(time)
@@ -425,18 +426,18 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, PSBL_class = 'yes
                         stats = extract_features.extract_all(mag,magerr, convert=True)
                         stats = [i for i in stats]
 #                       stats = ['ML'] + [4*n_class+k] + stats
-                        stats = ['PSBL ML'] + [4*n_class+k] + stats
+                        stats = ['PSBL_ML'] + [4*n_class+k] + stats
                         stats_list.append(stats)
-                        rowdata_PSBL = [id_num[0], t_0, u_0, t_e, log_d, log_q, alpha]
-                        data_rows_PSBL.append(rowdata_PSBL)
+                        #rowdata_PSBL = [id_num[0], t_0, u_0, t_e, log_d, log_q, alpha]
+                        #data_rows_PSBL.append(rowdata_PSBL)
     
                         break
                     if j == 99999:
                         raise RuntimeError('Unable to simulate proper ML in 100k tries with current cadence -- inspect cadence and/or noise model and try again.')
     
-            t = Table(rows=data_rows_PSBL, names=col_names_PSBL)
-            print('Write parameter table PSBL')
-            t.write('Simulated_parameters_PSBL.xml', format = 'votable')                
+            #t = Table(rows=data_rows_PSBL, names=col_names_PSBL)
+            #print('Write parameter table PSBL')
+            #t.write('Simulated_parameters_PSBL.xml', format = 'votable')                
             print("PSBL Microlensing events successfully simulated")                
             #print('Fit parameters:',parameters, 'errors:', errors)
             #print('parameter guess:', t_0, u_0, t_e, log_d, log_q, alpha)
@@ -475,7 +476,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, PSBL_class = 'yes
                     peaks, properties = find_peaks(mag, prominence=1)
     
                     if len(peaks) >= 2:
-                        source_class = ['PSBL ML']*len(time)
+                        source_class = ['PSBL_ML']*len(time)
                         source_class_list.append(source_class)
                         id_num = [4*n_class+k]*len(time)
                         id_list.append(id_num)
@@ -486,7 +487,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, PSBL_class = 'yes
                 
                         stats = extract_features.extract_all(mag,magerr, convert=True)
                         stats = [i for i in stats]
-                        stats = ['PSBL ML'] + [4*n_class+k] + stats
+                        stats = ['PSBL_ML'] + [4*n_class+k] + stats
                         stats_list.append(stats)
                     
                         break 
@@ -532,7 +533,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, PSBL_class = 'yes
     
     
     if PSBL_class == 'yes':
-        classes = ["VARIABLE"]*n_class+["CONSTANT"]*n_class+["CV"]*n_class+["ML"]*n_class+['PSBL ML']*n_class
+        classes = ["VARIABLE"]*n_class+["CONSTANT"]*n_class+["CV"]*n_class+["ML"]*n_class+['PSBL_ML']*n_class
         np.savetxt('pca_features.txt',np.c_[classes,np.arange(1,n_class*5+1),X_pca[:,:47]],fmt='%s') 
     else:
         classes = ["VARIABLE"]*n_class+["CONSTANT"]*n_class+["CV"]*n_class+["ML"]*n_class
