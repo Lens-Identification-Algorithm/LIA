@@ -85,3 +85,88 @@ def add_gaussian_noise(mag,zp=24):
     mag = np.array(mag)
 
     return np.array(noisy_mag), np.array(magerr)
+
+'''
+    Adds noise to Gaia g magnitudes
+    Estimated, using fi
+t by  Lukasz Wyrzykowski
+'''
+def add_gaia_g_noise(mag):
+    a1 = 0.2
+    b1 = -5.3 #-5.2
+    a2=0.2625
+    b2= -6.3625 #-6.2625
+     
+    mag_obs_list = []
+    magerr_list = []
+    
+    for value in mag:
+        log_err1 = a1*value + b1
+        log_err2 = a2*value + b2
+        if (value < 13.5):
+            magerr = 10**(a1*13.5+b1)
+            magerr_list.append(magerr)
+            mag_obs = np.random.normal(value, magerr)
+            mag_obs_list.append(mag_obs)
+        if value>=13.5 and value<17:
+            magerr = 10**log_err1
+            magerr_list.append(magerr)
+            mag_obs = np.random.normal(value, magerr)
+            mag_obs_list.append(mag_obs)            
+        if (value>=17): 
+            magerr = 10**log_err2
+            magerr_list.append(magerr)
+            mag_obs = np.random.normal(value, magerr)
+            mag_obs_list.append(mag_obs)            
+        #this works until 21 mag.
+    return np.array(mag_obs_list), np.array(magerr_list)
+
+
+'''
+    Adds noise to ZTF magnitudes according to given distribution of magnitude errors 
+'''
+def add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max):
+    bin_numbers_1 = np.digitize(mag, bin_edges)
+
+
+    bin_numbers_2 = []
+    for j in range(len(mag)):
+        if mag[j] <= mag_max:
+            bin_numbers_2.append(bin_numbers_1[j])
+        else:
+            bin_number_new = len(magerr_intervals)-1
+            bin_numbers_2.append(bin_number_new)
+        
+# if mag interval empty
+    for k in range(len(mag)):
+        for y in range(len(magerr_intervals)): 
+            if len(magerr_intervals[bin_numbers_2[k]]) != 0:
+                break
+            else:
+                try:
+                    bin_number_up = bin_numbers_2[k]+y
+                    if len(magerr_intervals[bin_number_up]) != 0:
+                        bin_numbers_2[k] = bin_number_up
+                        break
+                except(IndexError):
+                    bin_numbers_2[k] = bin_numbers_2[k]-y
+                    continue
+
+
+    magerr_random_list_1 = []
+    for l in range(len(mag)):
+        magerr_random = np.random.choice(a = magerr_intervals[bin_numbers_2[l]], size = 1)
+        magerr_random_list_1.append(magerr_random)
+
+    magerr_random_list = []    
+    for e in range(len(magerr_random_list_1)):
+        magerr_random_list.append(magerr_random_list_1[e][0])
+    
+    mag_obs_list = []
+    for m in range(len(mag)):
+        magerr = magerr_random_list[m]
+        mag_obs = np.random.normal(mag[m], magerr)
+        mag_obs_list.append(mag_obs)
+        
+    
+    return np.array(mag_obs_list), np.array(magerr_random_list) 

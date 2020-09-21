@@ -1,13 +1,17 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jun 28 20:30:11 2018
+Created on Sat Sep 19 14:19:01 2020
 
-@author: danielgodinez
+@author: marlen
 """
+
 from __future__ import division
 import numpy as np
 import os
+import cmath
 from math import pi
+import VBBinaryLensing
 
 def microlensing(timestamps, baseline):
     """Simulates a microlensing event.  
@@ -44,7 +48,7 @@ def microlensing(timestamps, baseline):
     
     t_0 = np.random.uniform(lower_bound, upper_bound)        
     u_0 = np.random.uniform(0, 1.5)
-    t_e = np.random.normal(30, 10.0)
+    t_e = np.random.normal(50, 10.0)
     blend_ratio = np.random.uniform(0,10)
 
     u_t = np.sqrt(u_0**2 + ((timestamps - t_0) / t_e)**2)
@@ -60,7 +64,7 @@ def microlensing(timestamps, baseline):
     flux_obs = f_s*magnification + f_b+flux_noise
     microlensing_mag = -2.5*np.log10(flux_obs)
     
-    return np.array(microlensing_mag), baseline, u_0, t_0, t_e, blend_ratio
+    return np.array(microlensing_mag), baseline, u_0, t_0, t_e, blend_ratio, np.array(flux_obs), f_s, f_b
     
 def cv(timestamps, baseline):
     """Simulates Cataclysmic Variable event.
@@ -225,4 +229,368 @@ def variable(timestamps, baseline, bailey=None):       #theory, McGill et al. (2
     amplitude = np.ptp(lightcurve) / 2.0
     return np.array(lightcurve), amplitude, period 
 
+'''
+Simulate Binary Lensing
+Using VBB Binary Lensing, complex caustic solver
+'''
+
+VBB = VBBinaryLensing.VBBinaryLensing()
+VBB.Tol = 0.001
+VBB.RelTol = 0.001
+VBB.minannuli=2 # stabilizing for rho>>caustics
+
+# Get a source track on a caustic
+def lens_equation_binary(z, m1, m2, z1,z2):
+    zco = z.conjugate()
+    return z + m1 / (z1.conjugate() - zco) + m2 / (z2.conjugate() - zco)
+
+
+def direct_roots_binary(m1,z2,varphi):
     
+    x0 = cmath.exp(1j*varphi)
+    x1 = x0*z2
+    x2 = 2*x1
+    x3 = 4*m1*x1 - x2
+    x4 = z2**2
+    x5 = -x0 - 1/2*x4
+    x6 = x5**3
+    x7 = (m1*x2 - x1)**2
+    x8 = m1*x0
+    x9 = x4*x8
+    x10 = (1/2)*z2
+    x11 = 2*z2
+    x12 = x11*(x10*x8 - x11*((1/16)*x0 - 1/64*x4))
+    x13 = x12 - x9
+    x14 = x13*x5
+    x15 = (1/3)*x14 - 1/108*x6 - 1/8*x7
+    x16 = 2*x15**(1/3)
+    x17 = (2/3)*x0 + (1/3)*x4
+    x18 = cmath.sqrt(-x16 + x17)
+    x19 = x3/x18
+    x20 = (4/3)*x0 + (2/3)*x4
+    x21 = x16 + x20
+    x22 = (1/2)*cmath.sqrt(x19 + x21)
+    x23 = (1/2)*x18
+    x24 = x10 - x23
+    x25 = (1/12)*x5**2
+    x26 = (x13 + x25 == 0)
+    x27 = -x12 - x25 + x9
+    x28 = (-1/6*x14 + (1/216)*x6 + (1/16)*x7 + cmath.sqrt((1/4)*x15**2 + (1/27)*x27**3))**(1/3)
+    x29 = 2*x28
+    x30 = (2/3)*x27/x28
+    x31 = cmath.sqrt(x17 + x29 - x30)
+    x32 = x3/x31
+    x33 = x20 - x29 + x30
+    x34 = (1/2)*cmath.sqrt(x32 + x33)
+    x35 = (1/2)*x31
+    x36 = x10 - x35
+    x37 = (1/2)*cmath.sqrt(-x19 + x21)
+    x38 = x10 + x23
+    x39 = (1/2)*cmath.sqrt(-x32 + x33)
+    x40 = x10 + x35
+
+    c0 = ((x22 + x24) if x26 else (x34 + x36))
+    c1 = ((-x22 + x24) if x26 else (-x34 + x36))
+    c2 = ((x37 + x38) if x26 else (x39 + x40))
+    c3 = ((-x37 + x38) if x26 else (-x39 + x40))
+
+    if x26 :
+        return [x22 + x24,-x22 + x24,x37 + x38,-x39 + x40]
+    else:
+        return [x34 + x36,-x34 + x36,x39 + x40,-x39 + x40]
+    return [c3, c2, c1, c0 ]
+
+
+def direct_critpattern(m1,m2,z2,z1,n):
+    crx,cry,cax,cay = [],[],[],[]
+    for phi in np.arange(0, 2.*np.pi, np.pi / n):
+        rf = direct_roots_binary(m1,z2,phi)
+        for idx in range(len(rf)):
+            b1 = lens_equation_binary(complex(rf[idx].real, rf[idx].imag),m1,m2,z1,z2)
+            crx.append(rf[idx].real),cry.append(rf[idx].imag)
+            cax.append(b1.real),cay.append(b1.imag)
+    return crx, cry, cax, cay
+
+def get_two_source_plane_points(m1,m2,z2,z1):
+    crx,cry,cax,cay = [],[],[],[]
+    for phi in np.random.uniform(0,2.*np.pi,2): 
+        rf = direct_roots_binary(m1,z2,phi)
+        for idx in range(len(rf)):
+            b1 = lens_equation_binary(complex(rf[idx].real, rf[idx].imag),m1,m2,z1,z2)
+            crx.append(rf[idx].real),cry.append(rf[idx].imag)
+            cax.append(b1.real),cay.append(b1.imag)    
+    #min and max value of critical curves on x axis
+    index_min = crx.index(min(crx))
+    index_max = crx.index(max(crx))
+    #pick random xaxis value between min(x) and max(x)
+    rand_xaxis_value = np.random.uniform(crx[index_min], crx[index_max])
+    #transform this point (rand_xaxis_value, 0) onto source plane
+    #remove those values from list of critical curves and caustics
+    crx.pop(index_min)  
+    index_max_new = crx.index(max(crx))
+    crx.pop(index_max_new)
+
+    cry.pop(index_min)
+    cry.pop(index_max_new)
+    
+    cax.pop(index_min)
+    cax.pop(index_max_new)
+    
+    cay.pop(index_min)
+    cay.pop(index_max_new)
+
+    #pick random caustic point from shortend list
+    rand_idx = np.random.randint(0,len(crx),1)
+    
+    rand_idx = rand_idx[0]
+    caustic_value_x = cax[rand_idx]
+    caustic_value_y = cay[rand_idx]
+    
+    return rand_xaxis_value, caustic_value_x, caustic_value_y
+            
+def get_source_trajectory(rand_xaxis_value, caustic_value_x, caustic_value_y):
+    # trajectory through (xaxis,0) and caustic (cax,cay)
+    m = caustic_value_y/(caustic_value_x-rand_xaxis_value)
+    b = -m*rand_xaxis_value
+    return m, b
+
+def source_trajectory(x,m,b):
+    y = m*x+b
+    return y
+
+def x_from_tE(t, t0, tE, cax0, cay0, m, b):
+    xi = (((t-t0)/tE) + cax0 + cay0 - b)/(1+m)
+    return xi
+
+
+def amplification_PSBL(separation, mass_ratio, x_source, y_source):
+    """
+    The Point Source Binary Lens amplification, based on the work of Valerio Bozza, thanks :)
+    "Microlensing with an advanced contour integration algorithm: Green's theorem to third order, error control,
+    optimal sampling and limb darkening ",Bozza, Valerio 2010. Please cite the paper if you used this.
+    http://mnras.oxfordjournals.org/content/408/4/2188
+    :param array_like separation: the projected normalised angular distance between the two bodies
+    :param float mass_ratio: the mass ratio of the two bodies
+    :param array_like x_source: the horizontal positions of the source center in the source plane
+    :param array_like y_source: the vertical positions of the source center in the source plane
+    :return: the PSBL magnification A_PSBL(t)
+    :rtype: array_like
+    """
+
+    amplification_psbl = []
+
+    for xs, ys, s in zip(x_source, y_source, separation):
+
+        magnification_VBB =VBB.BinaryMag0(s, mass_ratio, xs, ys)
+
+        amplification_psbl.append(magnification_VBB)
+
+    return np.array(amplification_psbl)
+
+
+def Binary_caustic_lightcurve(N, timestamps, baseline):
+    # N: number of observations
+    
+    x1l, y1l = 0., 0. #lens 1 at origin
+    y2l = 0.0
+    log_d = np.random.uniform(-0.7, 0.7)
+    x2l = 10**log_d
+    z1=x1l+1.j*y1l
+    z2=x2l+1.j*y2l
+    log_q = np.random.uniform(-2.0,0.0) #-2.0 planetary
+    
+    # t0 auf Kaustik caustic_value_x, caustic_value_y
+    lower_bound = np.percentile(timestamps, 10)
+    upper_bound = np.percentile(timestamps, 90)
+    t0 = np.random.uniform(lower_bound, upper_bound)  
+    
+    # construct timestamps
+    # t0 + 1/2 N, 
+    t_start = t0 - 0.5*N
+    t_end = t0 + 0.5*N
+    times = np.arange(t_start, t_end, 1.0).tolist() # 1 observation/day
+    
+    tE = np.random.normal(50.0, 10.0)
+    q = 10**log_q
+    m1 = q/(q+1)
+    m2 = 1.-m1
+    blend_ratio = np.random.uniform(0,10) 
+    # Get source trajectory
+    crx, cry, cax, cay = direct_critpattern(m1,m2,z2,z1,1) # vary last parameter, =1 8 solutions
+    rand_xaxis_value, caustic_value_x, caustic_value_y = get_two_source_plane_points(m1,m2,z2,z1)
+    m,b = get_source_trajectory(rand_xaxis_value, caustic_value_x, caustic_value_y)
+
+    #Get x_values, y_values
+    x_values_traj = []
+    y_values_traj = []
+    
+    for t in times:
+        x_value = x_from_tE(t, t0, tE, caustic_value_x, caustic_value_y, m, b)
+        x_values_traj.append(x_value)
+        y_value = source_trajectory(x_value,m,b)
+        y_values_traj.append(y_value)
+    
+    
+    x_values_traj = np.array(x_values_traj)
+    y_values_traj = np.array(y_values_traj)
+
+
+    separation = np.array(([0]*len(times)))+x2l  #np.array([0]*len(tau))
+    magnification = amplification_PSBL(separation, q , x_values_traj, y_values_traj)
+    
+    # PSBL magnitudes
+    mag = constant(times, baseline)
+    flux = 10**((mag) / -2.5)
+    baseline = np.median(mag)
+    flux_base = np.median(flux)
+    flux_noise = flux-flux_base
+    f_s = flux_base / (1 + blend_ratio)
+    f_b = blend_ratio * f_s
+    flux_obs = f_s*magnification + f_b+flux_noise
+    mu = flux_obs/flux_base
+    microlensing_mag = -2.5*np.log10(flux_obs)
+    
+    return np.array(microlensing_mag),times,mu
+
+def Planetary_caustic_lightcurve(N, timestamps, baseline):
+    # N: number of observations
+    
+    x1l, y1l = 0., 0. #lens 1 at origin
+    y2l = 0.0
+    log_d = np.random.uniform(-0.7, 0.7)
+    x2l = 10**log_d
+    z1=x1l+1.j*y1l
+    z2=x2l+1.j*y2l
+    log_q = np.random.uniform(-6.0,-2.0) #-2.0 planetary
+    
+    # t0 auf Kaustik caustic_value_x, caustic_value_y
+    lower_bound = np.percentile(timestamps, 10)
+    upper_bound = np.percentile(timestamps, 90)
+    t0 = np.random.uniform(lower_bound, upper_bound)  
+    
+    # construct timestamps
+    # t0 + 1/2 N, 
+    t_start = t0 - 0.5*N
+    t_end = t0 + 0.5*N
+    times = np.arange(t_start, t_end, 1.0).tolist() # 1 observation/day
+    
+    tE = np.random.normal(50.0, 10.0)
+    q = 10**log_q
+    m1 = q/(q+1)
+    m2 = 1.-m1
+    blend_ratio = np.random.uniform(0,10) 
+    # Get source trajectory
+    crx, cry, cax, cay = direct_critpattern(m1,m2,z2,z1,1) # vary last parameter, =1 8 solutions
+    rand_xaxis_value, caustic_value_x, caustic_value_y = get_two_source_plane_points(m1,m2,z2,z1)
+    m,b = get_source_trajectory(rand_xaxis_value, caustic_value_x, caustic_value_y)
+
+    #Get x_values, y_values
+    x_values_traj = []
+    y_values_traj = []
+    
+    for t in times:
+        x_value = x_from_tE(t, t0, tE, caustic_value_x, caustic_value_y, m, b)
+        x_values_traj.append(x_value)
+        y_value = source_trajectory(x_value,m,b)
+        y_values_traj.append(y_value)
+    
+    
+    x_values_traj = np.array(x_values_traj)
+    y_values_traj = np.array(y_values_traj)
+
+
+    separation = np.array(([0]*len(times)))+x2l  #np.array([0]*len(tau))
+    magnification = amplification_PSBL(separation, q , x_values_traj, y_values_traj)
+    
+    # PSBL magnitudes
+    mag = constant(times, baseline)
+    flux = 10**((mag) / -2.5)
+    baseline = np.median(mag)
+    flux_base = np.median(flux)
+    flux_noise = flux-flux_base
+    f_s = flux_base / (1 + blend_ratio)
+    f_b = blend_ratio * f_s
+    flux_obs = f_s*magnification + f_b+flux_noise
+    mu = flux_obs/flux_base
+    microlensing_mag = -2.5*np.log10(flux_obs)
+    
+    return np.array(microlensing_mag),times,mu
+
+def PSBL_caustic_lightcurve(N, timestamps, baseline):
+    # N: number of observations
+    
+    x1l, y1l = 0., 0. #lens 1 at origin
+    y2l = 0.0
+    log_d = np.random.uniform(-0.7, 0.7)
+    x2l = 10**log_d
+    z1=x1l+1.j*y1l
+    z2=x2l+1.j*y2l
+    log_q = np.random.uniform(-6.0,0.0) #-2.0 planetary
+    
+    # t0 auf Kaustik caustic_value_x, caustic_value_y
+    lower_bound = np.percentile(timestamps, 10)
+    upper_bound = np.percentile(timestamps, 90)
+    t0 = np.random.uniform(lower_bound, upper_bound)  
+    
+    # construct timestamps
+    # t0 + 1/2 N, 
+    t_start = t0 - 0.5*N
+    t_end = t0 + 0.5*N
+    times = np.arange(t_start, t_end, 1.0).tolist() # 1 observation/day
+    
+    tE = np.random.normal(50.0, 10.0)
+    q = 10**log_q
+    m1 = q/(q+1)
+    m2 = 1.-m1
+    blend_ratio = np.random.uniform(0,10) 
+    # Get source trajectory
+    crx, cry, cax, cay = direct_critpattern(m1,m2,z2,z1,1) # vary last parameter, =1 8 solutions
+    rand_xaxis_value, caustic_value_x, caustic_value_y = get_two_source_plane_points(m1,m2,z2,z1)
+    m,b = get_source_trajectory(rand_xaxis_value, caustic_value_x, caustic_value_y)
+
+    #Get x_values, y_values
+    x_values_traj = []
+    y_values_traj = []
+    
+    for t in times:
+        x_value = x_from_tE(t, t0, tE, caustic_value_x, caustic_value_y, m, b)
+        x_values_traj.append(x_value)
+        y_value = source_trajectory(x_value,m,b)
+        y_values_traj.append(y_value)
+    
+    
+    x_values_traj = np.array(x_values_traj)
+    y_values_traj = np.array(y_values_traj)
+
+
+    separation = np.array(([0]*len(times)))+x2l  #np.array([0]*len(tau))
+    magnification = amplification_PSBL(separation, q , x_values_traj, y_values_traj)
+    
+    # PSBL magnitudes
+    mag = constant(times, baseline)
+    flux = 10**((mag) / -2.5)
+    baseline = np.median(mag)
+    flux_base = np.median(flux)
+    flux_noise = flux-flux_base
+    f_s = flux_base / (1 + blend_ratio)
+    f_b = blend_ratio * f_s
+    flux_obs = f_s*magnification + f_b+flux_noise
+    mu = flux_obs/flux_base
+    microlensing_mag = -2.5*np.log10(flux_obs)
+    
+    return np.array(microlensing_mag),times,mu
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
