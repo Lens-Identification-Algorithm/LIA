@@ -347,8 +347,12 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
 
     if Planetary_events == 'Yes':
         print ("Now simulating microlensing PSBL Binary events...")
-        
-        # Strong
+        '''
+         I.e. simulate two classes of binary events for two different mass ranges:
+         binary: log q = [-2.0,0], planetary: log q = [-6.0,2.0]
+         Strong condition: Simulate binary lightcurves that cross caustics and fullfill two conditions:
+         magnification >= 3.0 for at least 4 observations and find_peaks functions identifies at least 2 peaks
+        '''
         if PSBL_condition == 'Strong':
             for k in range(1,n_class+1):
                 for j in range(100000):
@@ -408,7 +412,8 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
     
             print("PSBL Binary events  with strong condition successfully simulated")
             
-        # Weak
+        # Weak condition: Simulate binary lightcurves that cross caustics and fullfill one condition:
+        # magnification >= 3.0 for at least 4 observations
         if PSBL_condition == 'Weak':
             for k in range(1,n_class+1):
                 for j in range(100000):
@@ -585,7 +590,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
     
     if Planetary_events == 'No':
         print ("Now simulating microlensing PSBL Binary events...")
-        
+        # Simulate one class of binary lightcurves for mass ranges: logq = [-6.0,0]
         # Strong
         if PSBL_condition == 'Strong':
             for k in range(1,n_class+1):

@@ -231,7 +231,8 @@ def variable(timestamps, baseline, bailey=None):       #theory, McGill et al. (2
 
 '''
 Simulate Binary Lensing
-Using VBB Binary Lensing, complex caustic solver
+Using VBB Binary Lensing, complex caustic solver 
+Obtain critical curves and caustics from complex polynomials
 '''
 
 VBB = VBBinaryLensing.VBBinaryLensing()
@@ -239,12 +240,12 @@ VBB.Tol = 0.001
 VBB.RelTol = 0.001
 VBB.minannuli=2 # stabilizing for rho>>caustics
 
-# Get a source track on a caustic
+# Binary lens equation in complex form
 def lens_equation_binary(z, m1, m2, z1,z2):
     zco = z.conjugate()
     return z + m1 / (z1.conjugate() - zco) + m2 / (z2.conjugate() - zco)
 
-
+# Calculate roots of binary system
 def direct_roots_binary(m1,z2,varphi):
     
     x0 = cmath.exp(1j*varphi)
@@ -300,7 +301,7 @@ def direct_roots_binary(m1,z2,varphi):
         return [x34 + x36,-x34 + x36,x39 + x40,-x39 + x40]
     return [c3, c2, c1, c0 ]
 
-
+# Calculate critical curves and caustics
 def direct_critpattern(m1,m2,z2,z1,n):
     crx,cry,cax,cay = [],[],[],[]
     for phi in np.arange(0, 2.*np.pi, np.pi / n):
@@ -311,6 +312,8 @@ def direct_critpattern(m1,m2,z2,z1,n):
             cax.append(b1.real),cay.append(b1.imag)
     return crx, cry, cax, cay
 
+# Obtain two points in source plane to construct a source trajectory
+# One point lies on a caustic, one point lies on the x-axis between min and max of the critical curves
 def get_two_source_plane_points(m1,m2,z2,z1):
     crx,cry,cax,cay = [],[],[],[]
     for phi in np.random.uniform(0,2.*np.pi,2): 
@@ -347,7 +350,8 @@ def get_two_source_plane_points(m1,m2,z2,z1):
     caustic_value_y = cay[rand_idx]
     
     return rand_xaxis_value, caustic_value_x, caustic_value_y
-            
+
+# Calculate source trajectory from the two source plane points            
 def get_source_trajectory(rand_xaxis_value, caustic_value_x, caustic_value_y):
     # trajectory through (xaxis,0) and caustic (cax,cay)
     m = caustic_value_y/(caustic_value_x-rand_xaxis_value)
@@ -358,6 +362,7 @@ def source_trajectory(x,m,b):
     y = m*x+b
     return y
 
+# Calculate x-coordinate in the source plane for a given time
 def x_from_tE(t, t0, tE, cax0, cay0, m, b):
     xi = (((t-t0)/tE) + cax0 + cay0 - b)/(1+m)
     return xi
@@ -387,7 +392,7 @@ def amplification_PSBL(separation, mass_ratio, x_source, y_source):
 
     return np.array(amplification_psbl)
 
-
+# Calculate a binary lightcurve that crosses a caustic at t0
 def Binary_caustic_lightcurve(N, timestamps, baseline):
     # N: number of observations
     
@@ -452,6 +457,7 @@ def Binary_caustic_lightcurve(N, timestamps, baseline):
     
     return np.array(microlensing_mag),times,mu
 
+# Calculate a planetary lightcurve that crosses a caustic at t0
 def Planetary_caustic_lightcurve(N, timestamps, baseline):
     # N: number of observations
     
