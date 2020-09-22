@@ -416,58 +416,53 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
         # magnification >= 3.0 for at least 4 observations
         if PSBL_condition == 'Weak':
             for k in range(1,n_class+1):
-                for j in range(100000):
-                    choosen_pair = random.choice(time_baseline_pairs)
-                    time = choosen_pair[0]
-                    time = np.array(time)
-                    baseline = choosen_pair[1]
-                    N = len(time) #N = number of observations 
+                choosen_pair = random.choice(time_baseline_pairs)
+                time = choosen_pair[0]
+                time = np.array(time)
+                baseline = choosen_pair[1]
+                N = len(time) #N = number of observations 
                     
-                    # Simulate PSBL event
-                    I = 10000
-                    for i in range(I):
-                        try:
-                            mu_value = 3.0 
-                            mag, new_timestamps , mu = simulate.Binary_caustic_lightcurve(N, time, baseline) 
-                            count = len([h for h in mu if h >= mu_value])
-                            if count >= 4:
-                                break
-                            else:
-                                continue
-                            if i == 9999:
-                                raise RuntimeError('Unable to simulate PSBL Binary in 10k tries.')     
-                        except ZeroDivisionError:
+                # Simulate PSBL event
+                I = 10000
+                for i in range(I):
+                    try:
+                        mu_value = 3.0 
+                        mag, new_timestamps , mu = simulate.Binary_caustic_lightcurve(N, time, baseline) 
+                        count = len([h for h in mu if h >= mu_value])
+                        if count >= 4:
+                            break
+                        else:
                             continue
+                        if i == 9999:
+                            raise RuntimeError('Unable to simulate PSBL Binary in 10k tries.')     
+                    except ZeroDivisionError:
+                        continue
 
                     # noise
-                    try:
-                        if noise == 'Gaia':
-                            mag, magerr = noise_models.add_gaia_g_noise(mag)
-                        if noise == 'ZTF':
-                            mag, magerr = noise_models.add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max)
-                        if noise is None:
-                            mag, magerr= noise_models.add_gaussian_noise(mag)
-                    except ValueError:
-                        continue                    
+                try:
+                    if noise == 'Gaia':
+                        mag, magerr = noise_models.add_gaia_g_noise(mag)
+                    if noise == 'ZTF':
+                        mag, magerr = noise_models.add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max)
+                    if noise is None:
+                        mag, magerr= noise_models.add_gaussian_noise(mag)
+                except ValueError:
+                    continue                    
             
-                    source_class = ['PSBL_Binary']*len(new_timestamps)
-                    source_class_list.append(source_class)
-                    id_num = [4*n_class+k]*len(new_timestamps)
-                    id_list.append(id_num)
+                source_class = ['PSBL_Binary']*len(new_timestamps)
+                source_class_list.append(source_class)
+                id_num = [4*n_class+k]*len(new_timestamps)
+                id_list.append(id_num)
 
-                    times_list.append(new_timestamps)
-                    mag_list.append(mag)
-                    magerr_list.append(magerr)
+                times_list.append(new_timestamps)
+                mag_list.append(mag)
+                magerr_list.append(magerr)
                 
-                    stats = extract_features.extract_all(mag,magerr, convert=True)
-                    stats = [i for i in stats]
-                    stats = ['PSBL_Binary'] + [4*n_class+k] + stats
-                    stats_list.append(stats)
-                    
-                         
-                    if j == 99999:
-                        raise RuntimeError('Unable to simulate proper Binary ML in 100k tries with current cadence.')
-    
+                stats = extract_features.extract_all(mag,magerr, convert=True)
+                stats = [i for i in stats]
+                stats = ['PSBL_Binary'] + [4*n_class+k] + stats
+                stats_list.append(stats)
+                        
             print("PSBL Binary events with weak condition successfully simulated")        
 
         print ("Now simulating microlensing PSBL Planetary events...")    
@@ -534,57 +529,53 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
         # Weak
         if PSBL_condition == 'Weak':
             for k in range(1,n_class+1):
-                for j in range(100000):
-                    choosen_pair = random.choice(time_baseline_pairs)
-                    time = choosen_pair[0]
-                    time = np.array(time)
-                    baseline = choosen_pair[1]
-                    N = len(time) #N = number of observations 
+                choosen_pair = random.choice(time_baseline_pairs)
+                time = choosen_pair[0]
+                time = np.array(time)
+                baseline = choosen_pair[1]
+                N = len(time) #N = number of observations 
                     
-                    # Simulate PSBL event
-                    I = 10000
-                    for i in range(I):
-                        try:
-                            mu_value = 3.0 
-                            mag, new_timestamps , mu = simulate.Planetary_caustic_lightcurve(N, time, baseline) 
-                            count = len([h for h in mu if h >= mu_value])
-                            if count >= 4:
-                                break
-                            else:
-                                continue
-                            if i == 9999:
-                                raise RuntimeError('Unable to simulate PSBL Planetary in 10k tries.')     
-                        except ZeroDivisionError:
-                            continue
-
-                    # noise
+                # Simulate PSBL event
+                I = 10000
+                for i in range(I):
                     try:
-                        if noise == 'Gaia':
-                            mag, magerr = noise_models.add_gaia_g_noise(mag)
-                        if noise == 'ZTF':
-                            mag, magerr = noise_models.add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max)
-                        if noise is None:
-                            mag, magerr= noise_models.add_gaussian_noise(mag)
-                    except ValueError:
-                        continue                    
-            
-                    source_class = ['PSBL_Planetary']*len(new_timestamps)
-                    source_class_list.append(source_class)
-                    id_num = [5*n_class+k]*len(new_timestamps)
-                    id_list.append(id_num)
+                        mu_value = 3.0 
+                        mag, new_timestamps , mu = simulate.Planetary_caustic_lightcurve(N, time, baseline) 
+                        count = len([h for h in mu if h >= mu_value])
+                        if count >= 4:
+                            break
+                        else:
+                            continue
+                        if i == 9999:
+                            raise RuntimeError('Unable to simulate PSBL Planetary in 10k tries.')     
+                    except ZeroDivisionError:
+                        continue
 
-                    times_list.append(new_timestamps)
-                    mag_list.append(mag)
-                    magerr_list.append(magerr)
+                # noise
+                try:
+                    if noise == 'Gaia':
+                        mag, magerr = noise_models.add_gaia_g_noise(mag)
+                    if noise == 'ZTF':
+                        mag, magerr = noise_models.add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max)
+                    if noise is None:
+                        mag, magerr= noise_models.add_gaussian_noise(mag)
+                except ValueError:
+                    continue                    
+            
+                source_class = ['PSBL_Planetary']*len(new_timestamps)
+                source_class_list.append(source_class)
+                id_num = [5*n_class+k]*len(new_timestamps)
+                id_list.append(id_num)
                 
-                    stats = extract_features.extract_all(mag,magerr, convert=True)
-                    stats = [i for i in stats]
-                    stats = ['PSBL_Planetary'] + [5*n_class+k] + stats
-                    stats_list.append(stats)
+                times_list.append(new_timestamps)
+                mag_list.append(mag)
+                magerr_list.append(magerr)
+            
+                stats = extract_features.extract_all(mag,magerr, convert=True)
+                stats = [i for i in stats]
+                stats = ['PSBL_Planetary'] + [5*n_class+k] + stats
+                stats_list.append(stats)
                     
-                         
-                    if j == 99999:
-                        raise RuntimeError('Unable to simulate proper planetary ML in 100k tries with current cadence.')
     
             print("PSBL planetary events with weak condition successfully simulated")    
     
@@ -654,57 +645,53 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
         # Weak
         if PSBL_condition == 'Weak':
             for k in range(1,n_class+1):
-                for j in range(100000):
-                    choosen_pair = random.choice(time_baseline_pairs)
-                    time = choosen_pair[0]
-                    time = np.array(time)
-                    baseline = choosen_pair[1]
-                    N = len(time) #N = number of observations 
+                choosen_pair = random.choice(time_baseline_pairs)
+                time = choosen_pair[0]
+                time = np.array(time)
+                baseline = choosen_pair[1]
+                N = len(time) #N = number of observations 
                     
-                    # Simulate PSBL event
-                    I = 10000
-                    for i in range(I):
-                        try:
-                            mu_value = 3.0 
-                            mag, new_timestamps , mu = simulate.PSBL_caustic_lightcurve(N, time, baseline) 
-                            count = len([h for h in mu if h >= mu_value])
-                            if count >= 4:
-                                break
-                            else:
-                                continue
-                            if i == 9999:
-                                raise RuntimeError('Unable to simulate PSBL Binary in 10k tries.')     
-                        except ZeroDivisionError:
-                            continue
-
-                    # noise
+                # Simulate PSBL event
+                I = 10000
+                for i in range(I):
                     try:
-                        if noise == 'Gaia':
-                            mag, magerr = noise_models.add_gaia_g_noise(mag)
-                        if noise == 'ZTF':
-                            mag, magerr = noise_models.add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max)
-                        if noise is None:
-                            mag, magerr= noise_models.add_gaussian_noise(mag)
-                    except ValueError:
-                        continue                    
-            
-                    source_class = ['PSBL_ML']*len(new_timestamps)
-                    source_class_list.append(source_class)
-                    id_num = [4*n_class+k]*len(new_timestamps)
-                    id_list.append(id_num)
+                        mu_value = 3.0 
+                        mag, new_timestamps , mu = simulate.PSBL_caustic_lightcurve(N, time, baseline) 
+                        count = len([h for h in mu if h >= mu_value])
+                        if count >= 4:
+                            break
+                        else:
+                            continue
+                        if i == 9999:
+                            raise RuntimeError('Unable to simulate PSBL Binary in 10k tries.')     
+                    except ZeroDivisionError:
+                        continue
 
-                    times_list.append(new_timestamps)
-                    mag_list.append(mag)
-                    magerr_list.append(magerr)
+                # noise
+                try:
+                    if noise == 'Gaia':
+                        mag, magerr = noise_models.add_gaia_g_noise(mag)
+                    if noise == 'ZTF':
+                        mag, magerr = noise_models.add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max)
+                    if noise is None:
+                        mag, magerr= noise_models.add_gaussian_noise(mag)
+                except ValueError:
+                    continue                    
+            
+                source_class = ['PSBL_ML']*len(new_timestamps)
+                source_class_list.append(source_class)
+                id_num = [4*n_class+k]*len(new_timestamps)
+                id_list.append(id_num)
+
+                times_list.append(new_timestamps)
+                mag_list.append(mag)
+                magerr_list.append(magerr)
                 
-                    stats = extract_features.extract_all(mag,magerr, convert=True)
-                    stats = [i for i in stats]
-                    stats = ['PSBL_ML'] + [4*n_class+k] + stats
-                    stats_list.append(stats)
+                stats = extract_features.extract_all(mag,magerr, convert=True)
+                stats = [i for i in stats]
+                stats = ['PSBL_ML'] + [4*n_class+k] + stats
+                stats_list.append(stats)
                     
-                         
-                    if j == 99999:
-                        raise RuntimeError('Unable to simulate proper PSBL ML in 100k tries with current cadence.')
     
             print("PSBL ML events with weak condition successfully simulated")       
     
