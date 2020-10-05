@@ -18,7 +18,7 @@ from scipy.stats import mstats
 import contextlib
 from astropy.table import Table
 from scipy.signal import find_peaks
-
+from astropy.io.votable import parse_single_table
 
 from LIA import simulate
 from LIA import noise_models
@@ -182,11 +182,11 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
         mag, amplitude, period = simulate.variable(time,baseline)
            
         if noise == 'Gaia':
-             mag, magerr = noise_models.add_gaia_g_noise(mag)
+            mag, magerr = noise_models.add_gaia_g_noise(mag)
         if noise == 'ZTF':
             mag, magerr = noise_models.add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max)
         if noise is None:
-           mag, magerr = noise_models.add_gaussian_noise(mag) # zp=max_mag+3
+            mag, magerr = noise_models.add_gaussian_noise(mag) # zp=max_mag+3
            
 
         source_class = ['VARIABLE']*len(time)
@@ -205,6 +205,51 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
         stats_list.append(stats)
         
     print("Variables successfully simulated")
+    
+    mira_table = parse_single_table('Miras_vo.xml')
+
+    primary_period = mira_table.array['col4'].data
+    amplitude_pp = mira_table.array['col5'].data
+    secondary_period = mira_table.array['col6'].data
+    amplitude_sp = mira_table.array['col7'].data
+    tertiary_period = mira_table.array['col8'].data
+    amplitude_tp = mira_table.array['col9'].data
+    
+    
+    print("Now simulating LPVs (Miras)...")
+    for k in range(1,n_class+1):
+        choosen_pair = random.choice(time_baseline_pairs)
+        time = choosen_pair[0]
+        time = np.array(time)
+        baseline = choosen_pair[1]
+        mag = simulate.simulate_mira_lightcurve(time, baseline, primary_period, amplitude_pp, secondary_period, amplitude_sp, tertiary_period, amplitude_tp)
+           
+        if noise == 'Gaia':
+            mag, magerr = noise_models.add_gaia_g_noise(mag)
+        if noise == 'ZTF':
+            mag, magerr = noise_models.add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max)
+        if noise is None:
+            mag, magerr = noise_models.add_gaussian_noise(mag) # zp=max_mag+3
+           
+
+        source_class = ['LPV']*len(time)
+        source_class_list.append(source_class)
+
+        id_num = [1*n_class+k]*len(time)
+        id_list.append(id_num)
+
+        times_list.append(time)
+        mag_list.append(mag)
+        magerr_list.append(magerr)
+        
+        stats = extract_features.extract_all(mag,magerr,convert=True)
+        stats = [i for i in stats]
+        stats = ['LPV'] + [1*n_class+k] + stats
+        stats_list.append(stats)
+        
+    print("LPVs successfully simulated")
+    
+    
     print("Now simulating constants...")
     for k in range(1,n_class+1):
         choosen_pair = random.choice(time_baseline_pairs)
@@ -227,7 +272,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
         source_class_list.append(source_class)
 
 #        id_num = [2*n_class+k]*len(time)
-        id_num = [1*n_class+k]*len(time)
+        id_num = [2*n_class+k]*len(time)
         id_list.append(id_num)
 
         times_list.append(time)
@@ -237,7 +282,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
         stats = extract_features.extract_all(mag,magerr,convert=True)
         stats = [i for i in stats]
 #        stats = ['CONSTANT'] + [2*n_class+k] + stats
-        stats = ['CONSTANT'] + [1*n_class+k] + stats
+        stats = ['CONSTANT'] + [2*n_class+k] + stats
         stats_list.append(stats)
         
     print("Constants successfully simulated")
@@ -265,7 +310,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                 source_class = ['CV']*len(time)
                 source_class_list.append(source_class)
         #        id_num = [3*n_class+k]*len(time)
-                id_num = [2*n_class+k]*len(time)        
+                id_num = [3*n_class+k]*len(time)        
                 id_list.append(id_num)
             
                 times_list.append(time)
@@ -275,7 +320,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                 stats = extract_features.extract_all(mag,magerr,convert=True)
                 stats = [i for i in stats]
 #                stats = ['CV'] + [3*n_class+k] + stats
-                stats = ['CV'] + [2*n_class+k] + stats
+                stats = ['CV'] + [3*n_class+k] + stats
                 stats_list.append(stats)
                 break
             if j == 9999:
@@ -327,7 +372,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                 source_class = ['ML']*len(time)
                 source_class_list.append(source_class)
 #                id_num = [4*n_class+k]*len(time)
-                id_num = [3*n_class+k]*len(time)
+                id_num = [4*n_class+k]*len(time)
                 id_list.append(id_num)
             
                 times_list.append(time)
@@ -337,7 +382,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                 stats = extract_features.extract_all(mag,magerr, convert=True)
                 stats = [i for i in stats]
 #                stats = ['ML'] + [4*n_class+k] + stats
-                stats = ['ML'] + [3*n_class+k] + stats
+                stats = ['ML'] + [4*n_class+k] + stats
                 stats_list.append(stats)
                 break
             if j == 99999:
@@ -394,7 +439,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                     if len(peaks) >= 2:
                         source_class = ['PSBL_Binary']*len(new_timestamps)
                         source_class_list.append(source_class)
-                        id_num = [4*n_class+k]*len(new_timestamps)
+                        id_num = [5*n_class+k]*len(new_timestamps)
                         id_list.append(id_num)
             
                         times_list.append(new_timestamps)
@@ -403,7 +448,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                 
                         stats = extract_features.extract_all(mag,magerr, convert=True)
                         stats = [i for i in stats]
-                        stats = ['PSBL_Binary'] + [4*n_class+k] + stats
+                        stats = ['PSBL_Binary'] + [5*n_class+k] + stats
                         stats_list.append(stats)
                     
                         break 
@@ -451,7 +496,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
             
                 source_class = ['PSBL_Binary']*len(new_timestamps)
                 source_class_list.append(source_class)
-                id_num = [4*n_class+k]*len(new_timestamps)
+                id_num = [5*n_class+k]*len(new_timestamps)
                 id_list.append(id_num)
 
                 times_list.append(new_timestamps)
@@ -460,7 +505,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                 
                 stats = extract_features.extract_all(mag,magerr, convert=True)
                 stats = [i for i in stats]
-                stats = ['PSBL_Binary'] + [4*n_class+k] + stats
+                stats = ['PSBL_Binary'] + [5*n_class+k] + stats
                 stats_list.append(stats)
                         
             print("PSBL Binary events with weak condition successfully simulated")        
@@ -508,7 +553,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                     if len(peaks) >= 2:
                         source_class = ['PSBL_Planetary']*len(new_timestamps)
                         source_class_list.append(source_class)
-                        id_num = [5*n_class+k]*len(new_timestamps)
+                        id_num = [6*n_class+k]*len(new_timestamps)
                         id_list.append(id_num)
             
                         times_list.append(new_timestamps)
@@ -517,7 +562,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                 
                         stats = extract_features.extract_all(mag,magerr, convert=True)
                         stats = [i for i in stats]
-                        stats = ['PSBL_Planetary'] + [5*n_class+k] + stats
+                        stats = ['PSBL_Planetary'] + [6*n_class+k] + stats
                         stats_list.append(stats)
                     
                         break 
@@ -564,7 +609,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
             
                 source_class = ['PSBL_Planetary']*len(new_timestamps)
                 source_class_list.append(source_class)
-                id_num = [5*n_class+k]*len(new_timestamps)
+                id_num = [6*n_class+k]*len(new_timestamps)
                 id_list.append(id_num)
                 
                 times_list.append(new_timestamps)
@@ -573,7 +618,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
             
                 stats = extract_features.extract_all(mag,magerr, convert=True)
                 stats = [i for i in stats]
-                stats = ['PSBL_Planetary'] + [5*n_class+k] + stats
+                stats = ['PSBL_Planetary'] + [6*n_class+k] + stats
                 stats_list.append(stats)
                     
     
@@ -624,7 +669,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                     if len(peaks) >= 2:
                         source_class = ['PSBL_ML']*len(new_timestamps)
                         source_class_list.append(source_class)
-                        id_num = [4*n_class+k]*len(new_timestamps)
+                        id_num = [5*n_class+k]*len(new_timestamps)
                         id_list.append(id_num)
             
                         times_list.append(new_timestamps)
@@ -633,7 +678,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                 
                         stats = extract_features.extract_all(mag,magerr, convert=True)
                         stats = [i for i in stats]
-                        stats = ['PSBL_ML'] + [4*n_class+k] + stats
+                        stats = ['PSBL_ML'] + [5*n_class+k] + stats
                         stats_list.append(stats)
                     
                         break 
@@ -680,7 +725,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
             
                 source_class = ['PSBL_ML']*len(new_timestamps)
                 source_class_list.append(source_class)
-                id_num = [4*n_class+k]*len(new_timestamps)
+                id_num = [5*n_class+k]*len(new_timestamps)
                 id_list.append(id_num)
 
                 times_list.append(new_timestamps)
@@ -689,7 +734,7 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
                 
                 stats = extract_features.extract_all(mag,magerr, convert=True)
                 stats = [i for i in stats]
-                stats = ['PSBL_ML'] + [4*n_class+k] + stats
+                stats = ['PSBL_ML'] + [5*n_class+k] + stats
                 stats_list.append(stats)
                     
     
@@ -732,11 +777,11 @@ def create(all_oids, all_mag, all_magerr, all_mjd, noise=None, Planetary_events 
     
     
     if Planetary_events == 'Yes':
-        classes = ["VARIABLE"]*n_class+["CONSTANT"]*n_class+["CV"]*n_class+["ML"]*n_class+['PSBL_Binary']*n_class+['PSBL_Planetary']*n_class
-        np.savetxt('pca_features.txt',np.c_[classes,np.arange(1,n_class*6+1),X_pca[:,:47]],fmt='%s') 
+        classes = ["VARIABLE"]*n_class+['LPV']*n_class+["CONSTANT"]*n_class+["CV"]*n_class+["ML"]*n_class+['PSBL_Binary']*n_class+['PSBL_Planetary']*n_class
+        np.savetxt('pca_features.txt',np.c_[classes,np.arange(1,n_class*7+1),X_pca[:,:47]],fmt='%s') 
     else:
-        classes = ["VARIABLE"]*n_class+["CONSTANT"]*n_class+["CV"]*n_class+["ML"]*n_class+['PSBL_ML']*n_class
-        np.savetxt('pca_features.txt',np.c_[classes,np.arange(1,n_class*5+1),X_pca[:,:47]],fmt='%s')
+        classes = ["VARIABLE"]*n_class+['LPV']*n_class+["CONSTANT"]*n_class+["CV"]*n_class+["ML"]*n_class+['PSBL_ML']*n_class
+        np.savetxt('pca_features.txt',np.c_[classes,np.arange(1,n_class*6+1),X_pca[:,:47]],fmt='%s')
     print("Complete!")    
     
     
