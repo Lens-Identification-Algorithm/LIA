@@ -125,7 +125,7 @@ def add_gaia_g_noise(mag):
 '''
     Adds noise to ZTF magnitudes according to given distribution of magnitude errors 
 '''
-def add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max):
+def add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max, mag_intervals):
     bin_numbers_1 = np.digitize(mag, bin_edges)
 
 
@@ -140,12 +140,12 @@ def add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max):
 # if mag interval empty
     for k in range(len(mag)):
         for y in range(len(magerr_intervals)): 
-            if len(magerr_intervals[bin_numbers_2[k]]) != 0:
+            if len(mag_intervals[bin_numbers_2[k]]) != 0:
                 break
             else:
                 try:
                     bin_number_up = bin_numbers_2[k]+y
-                    if len(magerr_intervals[bin_number_up]) != 0:
+                    if len(mag_intervals[bin_number_up]) != 0:
                         bin_numbers_2[k] = bin_number_up
                         break
                 except(IndexError):
@@ -153,18 +153,22 @@ def add_ztf_noise(mag, bin_edges, magerr_intervals, mag_max):
                     continue
 
 
-    magerr_random_list_1 = []
+    #magerr_random_list_1 = []
+    magerr_random_list = []
     for l in range(len(mag)):
-        magerr_random = np.random.choice(a = magerr_intervals[bin_numbers_2[l]], size = 1)
-        magerr_random_list_1.append(magerr_random)
-
+        magerr_chosen = magerr_intervals[bin_numbers_2[l]]
+        magerr_random_list.append(magerr_chosen)
+        #magerr_random = np.random.choice(a = magerr_intervals[bin_numbers_2[l]], size = 1)
+        #magerr_random_list_1.append(magerr_random)
+    '''
     magerr_random_list = []    
     for e in range(len(magerr_random_list_1)):
         magerr_random_list.append(magerr_random_list_1[e][0])
-    
+    '''
     mag_obs_list = []
     for m in range(len(mag)):
         magerr = magerr_random_list[m]
+        #magerr = magerr_random_list[m]
         mag_obs = np.random.normal(mag[m], magerr)
         mag_obs_list.append(mag_obs)
         

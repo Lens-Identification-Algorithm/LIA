@@ -31,10 +31,11 @@ def create_models(all_feats, pca_feats):
     pca.fit(coeffs)
     #feat_strengths = pca.explained_variance_ratio_
     training_set = np.loadtxt(pca_feats, dtype = str,usecols=np.arange(0,49))
-    X_training, X_test, y_training, y_test = train_test_split(training_set[:,np.arange(2,46)].astype(float),training_set[:,0],test_size = 0.15, random_state=0, stratify = training_set[:,0])
+    #X_training, X_test, y_training, y_test = train_test_split(training_set[:,np.arange(2,46)].astype(float),training_set[:,0],test_size = 0.15, random_state=0, stratify = training_set[:,0])
     rf=RandomForestClassifier(n_estimators=1000, max_depth = 4, max_features=2, min_samples_leaf = 4, min_samples_split=2)
-    #rf.fit(training_set[:,np.arange(2,46)].astype(float),training_set[:,0])
-    rf.fit(X_training, y_training)
+    rf.fit(training_set[:,np.arange(2,46)].astype(float),training_set[:,0])
+    #rf.fit(X_training, y_training)
 
-    return rf, pca, X_training, y_training, X_test, y_test
+    return rf, pca
 
+#rf.fit(training_set[:,np.arange(1,45)].astype(float),training_set[:,0])
